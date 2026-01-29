@@ -1,0 +1,110 @@
+---
+import ImageMod from "@/components/ImageMod.astro";
+import Base from "@/layouts/Base.astro";
+import { getListPage, getSinglePage } from "@/lib/contentParser.astro";
+import { supportedLang } from "@/lib/utils/languageParser";
+import { markdownify } from "@/lib/utils/textConverter";
+import type { ContentEntryMap } from "astro:content";
+import BlogCard from "@/components/BlogCard.astro";
+import { sortByDate } from "@/lib/utils/sortFunctions";
+import { getTaxonomy } from "@/lib/taxonomyParser.astro";
+import { humanize } from "@/lib/utils/textConverter";
+import { slugSelector } from "@/lib/utils/languageParser";
+import config from "@/config/config.json";
+
+export function getStaticPaths() {
+  const paths = supportedLang.map((lang) => ({
+    params: { lang: lang || undefined },
+  }));
+  return paths;
+}
+
+const { lang: langParam } = Astro.params;
+const lang = langParam || config.settings.default_language;
+const homepage = await getListPage("homepage", lang as keyof ContentEntryMap);
+const { banner } = homepage[0].data;
+
+// Get blog posts
+const posts = await getSinglePage("blog", lang as keyof ContentEntryMap);
+const sortedPosts = sortByDate(posts);
+const recentPosts = sortedPosts.slice(0, 3);
+
+// Get tags
+const tags = await getTaxonomy(lang, "tags");
+---
+
+<Base>
+  <!-- Banner -->
+  <section class="section pt-14">
+    <div class="container">
+      <div class="row justify-center">
+        <div class="lg:col-7 md:col-9 mb-8 text-center">
+          <h1
+            set:html={markdownify(banner.title)}
+            class="mb-4 text-h3 lg:text-h1"
+          />
+          <p set:html={markdownify(banner.content)} class="mb-8" />
+        </div>
+        {
+          banner.image && (
+            <div class="col-12">
+              <ImageMod
+                src={banner.image}
+                height={380}
+                width={1200}
+                alt="banner"
+                format="webp"
+              />
+            </div>
+          )
+        }
+      </div>
+    </div>
+  </section>
+  <!-- /Banner -->
+
+  <!-- Recent Posts -->
+  <section class="section">
+    <div class="container">
+      <div class="row justify-center">
+        <div class="col-12 text-center">
+          <h2 class="section-title mb-8">Recent Posts</h2>
+        </div>
+      </div>
+      <div class="row justify-center">
+        {
+          recentPosts.map((post) => (
+            <div class="mb-14 md:col-6 lg:col-4">
+              <BlogCard data={post} />
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- Tags -->
+  <section class="section pt-0">
+    <div class="container">
+      <div class="row justify-center">
+        <div class="col-12 text-center">
+          <h2 class="section-title mb-8">Explore Topics</h2>
+          <ul class="inline-block">
+            {
+              tags.map((tag: string) => (
+                <li class="inline-block mx-2 my-2">
+                  <a
+                    href={slugSelector(`/tags/${tag}`, lang)}
+                    class="block rounded bg-theme-light px-4 py-2 text-xl hover:bg-primary hover:text-white dark:bg-darkmode-theme-light dark:hover:bg-darkmode-primary dark:hover:text-darkmode-text-light"
+                  >
+                    {humanize(tag)}
+                  </a>
+                </li>
+              ))
+            }
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+</Base>
